@@ -73,6 +73,7 @@ init_db()
 
 # TMDB API endpoints
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
+TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
 # Models
 class SearchQuery(BaseModel):
@@ -90,6 +91,11 @@ class MediaItem(BaseModel):
     description: Optional[str]
     creator: Optional[str]
     tags: list[str] = []
+
+def get_tmdb_image_url(path: Optional[str]) -> Optional[str]:
+    if not path:
+        return None
+    return f"{TMDB_IMAGE_BASE_URL}{path}"
 
 # API Routes
 @app.get("/api/search/{media_type}")
@@ -110,12 +116,15 @@ async def search_media(media_type: str, query: str, page: int = 1):
             # Transform TMDB response
             results = []
             for item in data.get("results", []):
+                poster_path = item.get("poster_path")
+                cover_image = get_tmdb_image_url(poster_path) if poster_path else None
+                
                 result = {
                     "id": str(item["id"]),
                     "type": media_type,
                     "title": item.get("title") or item.get("name"),
                     "year": item.get("release_date", "")[:4] if item.get("release_date") else "",
-                    "cover_image": f"https://image.tmdb.org/t/p/w500{item['poster_path']}" if item.get("poster_path") else None,
+                    "cover_image": cover_image,
                     "description": item.get("overview"),
                     "rating": item.get("vote_average", 0) / 2  # Convert to 5-star scale
                 }
@@ -180,12 +189,15 @@ async def get_media_details(media_type: str, id: str):
                 params={"api_key": TMDB_API_KEY}
             ).json()
             
+            poster_path = item.get("poster_path")
+            cover_image = get_tmdb_image_url(poster_path) if poster_path else None
+            
             result = {
                 "id": str(item["id"]),
                 "type": media_type,
                 "title": item.get("title") or item.get("name"),
                 "year": item.get("release_date", "")[:4] if item.get("release_date") else "",
-                "cover_image": f"https://image.tmdb.org/t/p/w500{item['poster_path']}" if item.get("poster_path") else None,
+                "cover_image": cover_image,
                 "description": item.get("overview"),
                 "rating": item.get("vote_average", 0) / 2,  # Convert to 5-star scale
                 "creator": ", ".join(d["name"] for d in item.get("created_by", []) or item.get("directors", [])),
