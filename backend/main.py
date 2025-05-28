@@ -95,6 +95,8 @@ class MediaItem(BaseModel):
 def get_tmdb_image_url(path: Optional[str]) -> Optional[str]:
     if not path:
         return None
+    if path.startswith('http'):
+        return path
     return f"{TMDB_IMAGE_BASE_URL}{path}"
 
 # API Routes
@@ -115,8 +117,9 @@ async def search_media(media_type: str, query: str, page: int = 1):
             )
             
             if response.status_code != 200:
+                print(f"TMDB API Error: {response.text}")  # Debug log
                 raise HTTPException(status_code=response.status_code, detail="TMDB API error")
-                
+            
             data = response.json()
             
             # Transform TMDB response
@@ -124,6 +127,10 @@ async def search_media(media_type: str, query: str, page: int = 1):
             for item in data.get("results", []):
                 poster_path = item.get("poster_path")
                 cover_image = get_tmdb_image_url(poster_path) if poster_path else None
+                
+                # Debug log
+                print(f"Poster path: {poster_path}")
+                print(f"Cover image URL: {cover_image}")
                 
                 result = {
                     "id": str(item["id"]),
@@ -176,6 +183,7 @@ async def search_media(media_type: str, query: str, page: int = 1):
             raise HTTPException(status_code=400, detail="Invalid media type")
             
     except Exception as e:
+        print(f"Error in search_media: {str(e)}")  # Debug log
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/media/{media_type}/{id}")
@@ -192,8 +200,9 @@ async def get_media_details(media_type: str, id: str):
             )
             
             if response.status_code != 200:
+                print(f"TMDB API Error: {response.text}")  # Debug log
                 raise HTTPException(status_code=response.status_code, detail="TMDB API error")
-                
+            
             item = response.json()
             
             # Get credits for cast information
@@ -204,6 +213,10 @@ async def get_media_details(media_type: str, id: str):
             
             poster_path = item.get("poster_path")
             cover_image = get_tmdb_image_url(poster_path) if poster_path else None
+            
+            # Debug log
+            print(f"Poster path: {poster_path}")
+            print(f"Cover image URL: {cover_image}")
             
             result = {
                 "id": str(item["id"]),
@@ -252,6 +265,7 @@ async def get_media_details(media_type: str, id: str):
             raise HTTPException(status_code=400, detail="Invalid media type")
             
     except Exception as e:
+        print(f"Error in get_media_details: {str(e)}")  # Debug log
         raise HTTPException(status_code=500, detail=str(e))
 
 # Run the server
