@@ -103,14 +103,25 @@ async def search_media(media_type: str, query: str, page: int = 1):
     try:
         if media_type in ["movie", "tv"]:
             # Search TMDB
+            headers = {
+                "Authorization": f"Bearer {TMDB_API_KEY}",
+                "accept": "application/json"
+            }
+            
             response = requests.get(
                 f"{TMDB_BASE_URL}/search/{media_type}",
+                headers=headers,
                 params={
-                    "api_key": TMDB_API_KEY,
                     "query": query,
-                    "page": page
+                    "page": page,
+                    "include_adult": False,
+                    "language": "en-US"
                 }
             )
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail="TMDB API error")
+                
             data = response.json()
             
             # Transform TMDB response
@@ -123,7 +134,7 @@ async def search_media(media_type: str, query: str, page: int = 1):
                     "id": str(item["id"]),
                     "type": media_type,
                     "title": item.get("title") or item.get("name"),
-                    "year": item.get("release_date", "")[:4] if item.get("release_date") else "",
+                    "year": (item.get("release_date") or item.get("first_air_date", ""))[:4],
                     "cover_image": cover_image,
                     "description": item.get("overview"),
                     "rating": item.get("vote_average", 0) / 2  # Convert to 5-star scale
@@ -177,16 +188,26 @@ async def get_media_details(media_type: str, id: str):
     try:
         if media_type in ["movie", "tv"]:
             # Get TMDB details
+            headers = {
+                "Authorization": f"Bearer {TMDB_API_KEY}",
+                "accept": "application/json"
+            }
+            
             response = requests.get(
                 f"{TMDB_BASE_URL}/{media_type}/{id}",
-                params={"api_key": TMDB_API_KEY}
+                headers=headers,
+                params={"language": "en-US"}
             )
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail="TMDB API error")
+                
             item = response.json()
             
             # Get credits for cast information
             credits = requests.get(
                 f"{TMDB_BASE_URL}/{media_type}/{id}/credits",
-                params={"api_key": TMDB_API_KEY}
+                headers=headers
             ).json()
             
             poster_path = item.get("poster_path")
@@ -196,7 +217,7 @@ async def get_media_details(media_type: str, id: str):
                 "id": str(item["id"]),
                 "type": media_type,
                 "title": item.get("title") or item.get("name"),
-                "year": item.get("release_date", "")[:4] if item.get("release_date") else "",
+                "year": (item.get("release_date") or item.get("first_air_date", ""))[:4],
                 "cover_image": cover_image,
                 "description": item.get("overview"),
                 "rating": item.get("vote_average", 0) / 2,  # Convert to 5-star scale
