@@ -27,6 +27,12 @@ app.add_middleware(
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY")
 
+# API Configuration
+TMDB_BASE_URL = "https://api.themoviedb.org/3"
+TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/"
+TMDB_POSTER_SIZE = "w500"
+TMDB_THUMBNAIL_SIZE = "w185"
+
 # Database setup
 def init_db():
     conn = sqlite3.connect('media_library.db')
@@ -71,10 +77,6 @@ def init_db():
 
 init_db()
 
-# TMDB API endpoints
-TMDB_BASE_URL = "https://api.themoviedb.org/3"
-TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
-
 # Models
 class SearchQuery(BaseModel):
     query: str
@@ -92,45 +94,61 @@ class MediaItem(BaseModel):
     creator: Optional[str]
     tags: list[str] = []
 
-def get_tmdb_image_url(path: Optional[str]) -> Optional[str]:
-    if not path:
+# Helper Functions
+def _make_tmdb_request(endpoint: str, params: dict = None) -> dict:
+    """Makes a request to the TMDb API with proper error handling."""
+    if params is None:
+        params = {}
+    
+    params.update({
+        "api_key": TMDB_API_KEY,
+        "language": "pt-BR",
+        "include_adult": False
+    })
+    
+    url = f"{TMDB_BASE_URL}/{endpoint}"
+    print(f"[DEBUG] TMDb Request URL: {url}")
+    print(f"[DEBUG] TMDb Request PARAMS: {params}")
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        print(f"[DEBUG] TMDb Response Status Code: {response.status_code}")
+        
+        if response.status_code != 200:
+            print(f"[DEBUG] TMDb Error Response: {response.text}")
+            raise HTTPException(status_code=response.status_code, detail="TMDB API error")
+        
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error making TMDb request: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def _get_tmdb_cover_url(poster_path: Optional[str], size: str = TMDB_POSTER_SIZE) -> Optional[str]:
+    """Constructs the full URL for a TMDb poster image."""
+    if not poster_path:
         return None
-    if path.startswith('http'):
-        return path
-    return f"{TMDB_IMAGE_BASE_URL}{path}"
+    if poster_path.startswith('http'):
+        return poster_path
+    return f"{TMDB_IMAGE_BASE_URL}{size}{poster_path}"
 
 # API Routes
 @app.get("/api/search/{media_type}")
 async def search_media(media_type: str, query: str, page: int = 1):
     try:
         if media_type in ["movie", "tv"]:
-            # Search TMDB
-            response = requests.get(
-                f"{TMDB_BASE_URL}/search/{media_type}",
-                params={
-                    "api_key": TMDB_API_KEY,
-                    "query": query,
-                    "page": page,
-                    "include_adult": False,
-                    "language": "en-US"
-                }
-            )
+            endpoint = f"search/{media_type}"
+            data = _make_tmdb_request(endpoint, {
+                "query": query,
+                "page": page
+            })
             
-            if response.status_code != 200:
-                print(f"TMDB API Error: {response.text}")  # Debug log
-                raise HTTPException(status_code=response.status_code, detail="TMDB API error")
-            
-            data = response.json()
-            
-            # Transform TMDB response
             results = []
             for item in data.get("results", []):
                 poster_path = item.get("poster_path")
-                cover_image = get_tmdb_image_url(poster_path) if poster_path else None
+                cover_image = _get_tmdb_cover_url(poster_path, TMDB_THUMBNAIL_SIZE)
                 
-                # Debug log
-                print(f"Poster path: {poster_path}")
-                print(f"Cover image URL: {cover_image}")
+                print(f"[DEBUG] Poster path: {poster_path}")
+                print(f"[DEBUG] Cover image URL: {cover_image}")
                 
                 result = {
                     "id": str(item["id"]),
@@ -146,7 +164,6 @@ async def search_media(media_type: str, query: str, page: int = 1):
             return {"results": results, "total_pages": data.get("total_pages", 1)}
             
         elif media_type == "book":
-            # Search Google Books
             response = requests.get(
                 "https://www.googleapis.com/books/v1/volumes",
                 params={
@@ -158,7 +175,6 @@ async def search_media(media_type: str, query: str, page: int = 1):
             )
             data = response.json()
             
-            # Transform Google Books response
             results = []
             for item in data.get("items", []):
                 volume_info = item.get("volumeInfo", {})
@@ -183,40 +199,33 @@ async def search_media(media_type: str, query: str, page: int = 1):
             raise HTTPException(status_code=400, detail="Invalid media type")
             
     except Exception as e:
-        print(f"Error in search_media: {str(e)}")  # Debug log
+        print(f"[DEBUG] Error in search_media: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/media/{media_type}/{id}")
 async def get_media_details(media_type: str, id: str):
     try:
         if media_type in ["movie", "tv"]:
-            # Get TMDB details
-            response = requests.get(
-                f"{TMDB_BASE_URL}/{media_type}/{id}",
-                params={
-                    "api_key": TMDB_API_KEY,
-                    "language": "en-US"
-                }
-            )
+            # Get main details
+            item = _make_tmdb_request(f"{media_type}/{id}")
             
-            if response.status_code != 200:
-                print(f"TMDB API Error: {response.text}")  # Debug log
-                raise HTTPException(status_code=response.status_code, detail="TMDB API error")
-            
-            item = response.json()
-            
-            # Get credits for cast information
-            credits = requests.get(
-                f"{TMDB_BASE_URL}/{media_type}/{id}/credits",
-                params={"api_key": TMDB_API_KEY}
-            ).json()
+            # Get credits
+            credits = _make_tmdb_request(f"{media_type}/{id}/credits")
             
             poster_path = item.get("poster_path")
-            cover_image = get_tmdb_image_url(poster_path) if poster_path else None
+            cover_image = _get_tmdb_cover_url(poster_path)
             
-            # Debug log
-            print(f"Poster path: {poster_path}")
-            print(f"Cover image URL: {cover_image}")
+            print(f"[DEBUG] Poster path: {poster_path}")
+            print(f"[DEBUG] Cover image URL: {cover_image}")
+            
+            # Get creator (director for movies, created by for TV shows)
+            creator = None
+            if media_type == "movie" and "crew" in credits:
+                directors = [c["name"] for c in credits["crew"] if c["job"] == "Director"]
+                creator = ", ".join(directors) if directors else None
+            elif media_type == "tv":
+                creators = [c["name"] for c in item.get("created_by", [])]
+                creator = ", ".join(creators) if creators else None
             
             result = {
                 "id": str(item["id"]),
@@ -226,7 +235,7 @@ async def get_media_details(media_type: str, id: str):
                 "cover_image": cover_image,
                 "description": item.get("overview"),
                 "rating": item.get("vote_average", 0) / 2,  # Convert to 5-star scale
-                "creator": ", ".join(d["name"] for d in item.get("created_by", []) or item.get("directors", [])),
+                "creator": creator,
                 "additional_info": {
                     "runtime": item.get("runtime") or sum(e.get("runtime", 0) for e in item.get("episodes", [])),
                     "cast": [c["name"] for c in credits.get("cast", [])[:5]]
@@ -236,7 +245,6 @@ async def get_media_details(media_type: str, id: str):
             return result
             
         elif media_type == "book":
-            # Get Google Books details
             response = requests.get(
                 f"https://www.googleapis.com/books/v1/volumes/{id}",
                 params={"key": GOOGLE_BOOKS_API_KEY}
@@ -265,7 +273,7 @@ async def get_media_details(media_type: str, id: str):
             raise HTTPException(status_code=400, detail="Invalid media type")
             
     except Exception as e:
-        print(f"Error in get_media_details: {str(e)}")  # Debug log
+        print(f"[DEBUG] Error in get_media_details: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Run the server
