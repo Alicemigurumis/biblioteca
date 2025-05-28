@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Plus, X } from 'lucide-react';
+import AddMediaDialog from '../dialogs/AddMediaDialog';
 
 const Header: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -23,19 +25,10 @@ const Header: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Implement search functionality
-    console.log('Searching for:', searchQuery);
-    // For now, we'll just alert
     if (searchQuery.trim()) {
-      alert(`Search functionality would search for: "${searchQuery}"`);
+      // Implement global search functionality
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
     }
-  };
-
-  const handleAddNew = () => {
-    // This would normally open a dialog to select media type
-    // For now we'll navigate to the movies page as an example
-    navigate('/movies');
-    alert('In a real implementation, this would open a dialog to select which type of media to add.');
   };
 
   return (
@@ -79,13 +72,18 @@ const Header: React.FC = () => {
           )}
           
           <button
-            onClick={handleAddNew}
+            onClick={() => setIsAddDialogOpen(true)}
             className="bg-primary-500 hover:bg-primary-600 text-white rounded-full p-2 transition-colors flex items-center justify-center"
           >
             <Plus size={20} />
           </button>
         </div>
       </div>
+
+      <AddMediaDialog
+        isOpen={isAddDialogOpen}
+        onClose={() => setIsAddDialogOpen(false)}
+      />
     </header>
   );
 };
