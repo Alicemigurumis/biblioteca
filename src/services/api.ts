@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Media } from '../types';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -11,14 +11,14 @@ const api = axios.create({
 });
 
 export const searchMedia = async (mediaType: string, query: string, page: number = 1) => {
-  const response = await api.get(`/search/${mediaType}`, {
+  const response = await api.get(`/api/search/${mediaType}`, {
     params: { query, page }
   });
   return response.data;
 };
 
 export const getMediaDetails = async (mediaType: string, id: string) => {
-  const response = await api.get(`/media/${mediaType}/${id}`);
+  const response = await api.get(`/api/media/${mediaType}/${id}`);
   return response.data;
 };
 
@@ -27,7 +27,7 @@ export const saveReview = async (mediaId: string, reviewData: {
   reviewText: string;
   tags: string[];
 }) => {
-  const response = await api.post(`/reviews/${mediaId}`, reviewData);
+  const response = await api.post(`/api/reviews/${mediaId}`, reviewData);
   return response.data;
 };
 
