@@ -1,0 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background-primary text-text-primary font-sans;
+    @apply min-h-screen overflow-x-hidden;
+  }
+
+  h1 {
+    @apply text-3xl font-bold leading-tight;
+  }
+
+  h2 {
+    @apply text-2xl font-bold leading-tight;
+  }
+
+  h3 {
+    @apply text-xl font-bold leading-tight;
+  }
+
+  h4 {
+    @apply text-lg font-bold leading-tight;
+  }
+}
+
+@layer components {
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary transition-colors rounded-md;
+  }
+
+  .sidebar-link.active {
+    @apply bg-background-tertiary text-text-primary;
+  }
+
+  .media-card {
+    @apply bg-background-secondary rounded-md overflow-hidden transition-all duration-300 hover:transform hover:scale-[1.02] hover:shadow-lg;
+  }
+
+  .tag-badge {
+    @apply px-2 py-1 bg-background-tertiary text-text-secondary text-xs rounded-full;
+  }
+
+  .rating-star {
+    @apply w-5 h-5 text-warning-500 inline-block;
+  }
+
+  .rating-star-empty {
+    @apply w-5 h-5 text-background-tertiary inline-block;
+  }
+
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-medium py-2 px-4 rounded transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-background-tertiary hover:bg-gray-700 text-text-primary font-medium py-2 px-4 rounded transition-colors;
+  }
+
+  .text-input {
+    @apply bg-background-tertiary text-text-primary rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-primary-500;
+  }
+
+  .select-input {
+    @apply bg-background-tertiary text-text-primary rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-primary-500;
+  }
+
+  .text-area {
+    @apply bg-background-tertiary text-text-primary rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[100px];
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background-primary;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-background-tertiary rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-600;
+}
+
+/* Smooth animations */
+.fade-enter {
+  opacity: 0;
+}
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 300ms;
+}
+.fade-exit {
+  opacity: 1;
+}
+.fade-exit-active {
+  opacity: 0;
+  transition: opacity 300ms;
+}
