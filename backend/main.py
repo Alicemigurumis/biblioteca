@@ -103,15 +103,10 @@ async def search_media(media_type: str, query: str, page: int = 1):
     try:
         if media_type in ["movie", "tv"]:
             # Search TMDB
-            headers = {
-                "Authorization": f"Bearer {TMDB_API_KEY}",
-                "accept": "application/json"
-            }
-            
             response = requests.get(
                 f"{TMDB_BASE_URL}/search/{media_type}",
-                headers=headers,
                 params={
+                    "api_key": TMDB_API_KEY,
                     "query": query,
                     "page": page,
                     "include_adult": False,
@@ -188,15 +183,12 @@ async def get_media_details(media_type: str, id: str):
     try:
         if media_type in ["movie", "tv"]:
             # Get TMDB details
-            headers = {
-                "Authorization": f"Bearer {TMDB_API_KEY}",
-                "accept": "application/json"
-            }
-            
             response = requests.get(
                 f"{TMDB_BASE_URL}/{media_type}/{id}",
-                headers=headers,
-                params={"language": "en-US"}
+                params={
+                    "api_key": TMDB_API_KEY,
+                    "language": "en-US"
+                }
             )
             
             if response.status_code != 200:
@@ -207,7 +199,7 @@ async def get_media_details(media_type: str, id: str):
             # Get credits for cast information
             credits = requests.get(
                 f"{TMDB_BASE_URL}/{media_type}/{id}/credits",
-                headers=headers
+                params={"api_key": TMDB_API_KEY}
             ).json()
             
             poster_path = item.get("poster_path")
