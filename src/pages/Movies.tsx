@@ -1,84 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { movies } from '../data/mockData';
 import MediaCard from '../components/common/MediaCard';
 import MediaFilters from '../components/filters/MediaFilters';
 import { Media } from '../types';
+import { searchMedia } from '../services/api';
+import { Search } from 'lucide-react';
 
 const Movies: React.FC = () => {
-  const [filteredMovies, setFilteredMovies] = useState<Media[]>(movies);
-  const [filters, setFilters] = useState({
-    tags: [] as string[],
-    rating: 0,
-    year: ''
-  });
-  const [sortField, setSortField] = useState('title');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [movies, setMovies] = useState<Media[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    let result = [...movies];
-    
-    // Apply filters
-    if (filters.tags.length > 0) {
-      result = result.filter(movie => 
-        filters.tags.some(tag => movie.tags.includes(tag))
-      );
+  const fetchMovies = async (query: string = '', page: number = 1) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await searchMedia('movie', query || 'popular', page);
+      setMovies(response.results);
+      setTotalPages(response.total_pages);
+    } catch (err) {
+      setError('Failed to fetch movies. Please try again later.');
+      console.error('Error fetching movies:', err);
+    } finally {
+      setLoading(false);
     }
-    
-    if (filters.rating > 0) {
-      result = result.filter(movie => movie.rating >= filters.rating);
-    }
-    
-    if (filters.year) {
-      // Handle range like "2010-2020" or single year "2015"
-      if (filters.year.includes('-')) {
-        const [startYear, endYear] = filters.year.split('-').map(y => parseInt(y.trim()));
-        result = result.filter(movie => {
-          const movieYear = parseInt(movie.year);
-          return movieYear >= startYear && movieYear <= endYear;
-        });
-      } else {
-        const year = parseInt(filters.year.trim());
-        result = result.filter(movie => parseInt(movie.year) === year);
-      }
-    }
-    
-    // Apply sorting
-    result.sort((a, b) => {
-      let comparison = 0;
-      
-      if (sortField === 'title') {
-        comparison = a.title.localeCompare(b.title);
-      } else if (sortField === 'year') {
-        comparison = parseInt(a.year) - parseInt(b.year);
-      } else if (sortField === 'rating') {
-        comparison = a.rating - b.rating;
-      } else if (sortField === 'dateAdded') {
-        comparison = new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime();
-      }
-      
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-    
-    setFilteredMovies(result);
-  }, [filters, sortField, sortOrder]);
-
-  const handleFilterChange = (newFilters: any) => {
-    setFilters(newFilters);
   };
 
-  const handleSortChange = (field: string, order: 'asc' | 'desc') => {
-    setSortField(field);
-    setSortOrder(order);
+  useEffect(() => {
+    fetchMovies(searchQuery, currentPage);
+  }, [searchQuery, currentPage]);
+
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setCurrentPage(1);
+    fetchMovies(searchQuery, 1);
   };
 
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
+      transition: { staggerChildren: 0.1 }
     }
   };
 
@@ -87,40 +52,72 @@ const Movies: React.FC = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Movies</h1>
         <p className="text-text-secondary">
-          Browse and manage your movie collection. Filter by tags, rating, or year.
+          Browse and manage your movie collection. Search for new movies to add.
         </p>
       </div>
-      
-      <MediaFilters 
-        onFilterChange={handleFilterChange}
-        onSortChange={handleSortChange}
-        mediaType="movies"
-      />
-      
-      {filteredMovies.length > 0 ? (
-        <motion.div 
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          {filteredMovies.map(movie => (
-            <MediaCard key={movie.id} media={movie} />
-          ))}
-        </motion.div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-text-secondary text-lg mb-4">No movies match your filters</p>
-          <button 
-            onClick={() => setFilters({ tags: [], rating: 0, year: '' })}
-            className="btn-primary"
-          >
-            Clear Filters
+
+      <form onSubmit={handleSearch} className="mb-6">
+        <div className="relative">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search movies..."
+            className="w-full px-4 py-2 pl-10 bg-background-secondary rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" size={18} />
+        </div>
+      </form>
+
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+        </div>
+      ) : error ? (
+        <div className="text-center py-12">
+          <p className="text-error-500">{error}</p>
+          <button onClick={() => fetchMovies()} className="mt-4 btn-primary">
+            Try Again
           </button>
         </div>
+      ) : (
+        <>
+          <motion.div
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            {movies.map(movie => (
+              <MediaCard key={movie.id} media={movie} />
+            ))}
+          </motion.div>
+
+          {totalPages > 1 && (
+            <div className="mt-8 flex justify-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="btn-secondary disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="px-4 py-2 bg-background-secondary rounded">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="btn-secondary disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
-};
+}
 
 export default Movies;
